@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+
+    <!-- Launch depth image masker node -->
+    <node pkg="depth_masker_from_rgb" name="depth_masker_from_rgb" type="depth_masker_from_rgb_node.py" output="screen">
+        <param name="~depth_in_topic" value="/wrist_camera/aligned_depth_to_color/image_raw"/> <!-- or, for the aligned depth image use: /wrist_camera/aligned_depth_to_color/image_raw OTHERWISE use /wrist_camera/depth/image_rect_raw -->
+        <param name="~image_in_topic" value="/wrist_camera/color/image_raw"/>
+        <param name="~mask_in_topic" value="/color_picker/balloon_color_picker/circled_hsv"/>
+        <param name="~depth_camera_info_topic" value="/wrist_camera/aligned_depth_to_color/camera_info"/> <!-- or, for the aligned depth image use: /wrist_camera/aligned_depth_to_color/camera_info    OTHERWISE /wrist_camera/depth/camera_info -->
+        <param name="~rgb_camera_info_topic" value="/wrist_camera/color/camera_info"/>
+
+        <param name="~rgb_image_frame_id" value="wrist_camera_color_optical_frame"/>
+        <param name="~depth_image_frame_id" value="wrist_camera_depth_optical_frame"/>
+
+        <param name="~aligned_depth_rgb" value="True"/>
+    </node>
+
+</launch>
