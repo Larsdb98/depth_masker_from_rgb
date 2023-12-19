@@ -7,6 +7,7 @@ import cv_bridge
 import cv2
 import numpy as np
 import tf
+import copy
 
 
 
@@ -15,9 +16,6 @@ class DepthMaskingNode:
         rospy.init_node('depth_masking_node', anonymous=True)
         self.bridge = cv_bridge.CvBridge()
         self.tf_listener = tf.TransformListener()
-
-        # ROS Publisher
-        self.depth_pub = rospy.Publisher('/camera/depth/image_raw_masked', Image, queue_size=10)
 
         # Placeholder variables for camera intrinsics
         self.depth_camera_intrinsics = None
@@ -31,7 +29,6 @@ class DepthMaskingNode:
         self.mask_image_header = None
 
         self.rgb_image = None
-        self.rgb_image_header = None
 
         # Fetch ROS params
         self.__depth_in_topic = rospy.get_param("~depth_in_topic", "/camera/depth/image_rect_raw")
@@ -39,6 +36,9 @@ class DepthMaskingNode:
         self.__mask_in_topic = rospy.get_param("~mask_in_topic", "/camera/color/mask")
         self.__depth_camera_info_topic = rospy.get_param("~depth_camera_info_topic", "/camera/depth/camera_info")
         self.__rgb_camera_info_topic = rospy.get_param("~rgb_camera_info_topic", "/camera/color/camera_info")
+
+        self.__masked_depth_pub_topic = rospy.get_param("~masked_depth_pub_topic", "/camera/depth/image_raw_masked")
+        self.__masked_rgb_pub_topic = rospy.get_param("~masked_rgb_pub_topic", "/camera/color/image_raw_masked")
 
         self.__rgb_image_frame_id = rospy.get_param("~rgb_image_frame_id", "camera_color_optical_frame")
         self.__depth_image_frame_id = rospy.get_param("~depth_image_frame_id", "camera_depth_optical_frame")
@@ -54,22 +54,38 @@ class DepthMaskingNode:
         rospy.Subscriber(self.__rgb_camera_info_topic, CameraInfo, self.callback_rgb_intrinsics)
 
 
+        # ROS Publisher
+        self.depth_pub = rospy.Publisher(self.__masked_depth_pub_topic, Image, queue_size=10)
+        self.rgb_pub = rospy.Publisher(self.__masked_rgb_pub_topic, Image, queue_size=10)
+
 
     def callback_depth(self, depth_msg):
         # Convert ROS image to OpenCV image
         depth_image = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
 
-        # Apply mask to the depth image
-        # masked_depth_image = self.apply_mask(depth_image, self.mask_image, self.depth_camera_intrinsics)
-        if self.__aligned_depth_rgb:
-            print("Param was true")
-            masked_depth_image = self.apply_mask_aligned_depth_rgb(depth_image, self.mask_image)
-        else:
-            masked_depth_image = self.apply_mask_2(depth_image, self.mask_image, self.depth_camera_intrinsics, self.rgb_camera_intrinsics)
+        rgb_img = copy.copy(self.rgb_image)
 
+        # Apply mask on rgb and depth images
+        if self.rgb_image is not None and self.mask_image is not None:
+            if self.__aligned_depth_rgb:
+                # print("Param was true")
+                masked_depth_image, masked_rgb_image = self.apply_mask_aligned_depth_rgb(depth_image, rgb_img, self.mask_image)
+            else:
+                masked_depth_image = self.apply_mask_2(depth_image, self.mask_image, self.depth_camera_intrinsics, self.rgb_camera_intrinsics)
+        else:  # if either the mask or rgb image was not available: 
+            rospy.logwarn("Not all messages have been recieved yet. Waiting...")
+            return
+        
         # Publish the masked depth image
         masked_depth_msg = self.bridge.cv2_to_imgmsg(masked_depth_image, encoding='passthrough')
+        masked_rgb_msg = self.bridge.cv2_to_imgmsg(masked_rgb_image, encoding="bgr8")
+        # Pass headers from depth image message recieved to ensure synchronization:
+        masked_depth_msg.header = depth_msg.header
+        masked_rgb_msg.header = depth_msg.header
+
+        # Publish masked images
         self.depth_pub.publish(masked_depth_msg)
+        self.rgb_pub.publish(masked_rgb_msg)
 
 
 
@@ -95,19 +111,23 @@ class DepthMaskingNode:
 
 
 
-
     def callback_rgb_intrinsics(self, rgb_info_msg):
         # Save RGB camera intrinsics for later use
         self.rgb_camera_intrinsics = np.array(rgb_info_msg.K).reshape((3, 3))
 
 
-    def apply_mask_aligned_depth_rgb(self, depth_image, mask_image):
-        # print("depth_image: {}".format(depth_image))
-        # with np.printoptions(threshold = np.inf):
+
+    def apply_mask_aligned_depth_rgb(self, depth_image, rgb_image, mask_image):
+        # Mask the depth image first, easy, both depth and mask images are grayscales.
         mask_image[np.where(mask_image == 255)] = 1 # replace 255 by 1. Unit rescale of the mask
         # print("mask image: {}".format(mask_image))
         masked_depth_image = np.multiply(depth_image, mask_image)
-        return masked_depth_image
+
+        # Now mask the rgb image
+        # rgb_mask_image = cv2.cvtColor(mask_image, cv2.COLOR_GRAY2BGR)
+        masked_rgb_image = cv2.bitwise_and(rgb_image, rgb_image, mask = mask_image)
+
+        return masked_depth_image, masked_rgb_image
 
 
 
@@ -203,4 +223,3 @@ class DepthMaskingNode:
 if __name__ == "__main__":
     node = DepthMaskingNode()
     node.run()
-    

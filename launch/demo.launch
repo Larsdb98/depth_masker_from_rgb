@@ -10,7 +10,10 @@
         <param name="~rgb_camera_info_topic" value="/wrist_camera/color/camera_info"/>
 
         <param name="~rgb_image_frame_id" value="wrist_camera_color_optical_frame"/>
-        <param name="~depth_image_frame_id" value="wrist_camera_depth_optical_frame"/>
+        <param name="~depth_image_frame_id" value="wrist_camera_color_optical_frame"/>
+
+        <param name="~masked_depth_pub_topic" value="/camera/depth/image_raw_masked"/>
+        <param name="~masked_rgb_pub_topic" value="/camera/color/image_raw_masked"/>
 
         <param name="~aligned_depth_rgb" value="True"/>
     </node>
