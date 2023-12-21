@@ -45,6 +45,12 @@ class DepthMaskingNode:
 
         self.__aligned_depth_rgb = rospy.get_param("~aligned_depth_rgb", "False")
 
+        self.__rectangle_mask = rospy.get_param("~rectangle_mask", "False")
+        self.__x_lower = rospy.get_param("~x_lower", 200)
+        self.__x_upper = rospy.get_param("~x_upper", 300)
+        self.__y_lower = rospy.get_param("~y_lower", 200)
+        self.__y_upper = rospy.get_param("~y_upper", 300)
+
 
         # Subscribe to topics
         rospy.Subscriber(self.__depth_in_topic, Image, self.callback_depth)
@@ -126,6 +132,11 @@ class DepthMaskingNode:
         # Now mask the rgb image
         # rgb_mask_image = cv2.cvtColor(mask_image, cv2.COLOR_GRAY2BGR)
         masked_rgb_image = cv2.bitwise_and(rgb_image, rgb_image, mask = mask_image)
+
+        if self.__rectangle_mask:
+            mask = np.zeros_like(mask_image)
+            mask[self.__y_lower:self.__y_upper, self.__x_lower:self.__x_upper] = 1
+            masked_depth_image = masked_depth_image * (1 - mask)
 
         return masked_depth_image, masked_rgb_image
 

@@ -16,6 +16,13 @@
         <param name="~masked_rgb_pub_topic" value="/camera/color/image_raw_masked"/>
 
         <param name="~aligned_depth_rgb" value="True"/>
+
+        <param name="~rectangle_mask" value="True"/>
+        <!-- Set dimensions of rectangular mask -->
+        <param name="~x_lower" value="0" />
+        <param name="~x_upper" value="640" />
+        <param name="~y_lower" value="400" />
+        <param name="~y_upper" value="480" />
     </node>
 
 </launch>
